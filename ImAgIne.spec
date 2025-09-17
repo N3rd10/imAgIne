@@ -1,0 +1,55 @@
+# -*- mode: python ; coding: utf-8 -*-
+
+a = Analysis(
+    ['imAgIne.py'],
+    pathex=['c:\\Users\\lando\\code\\local\\python\\ai\\image reconition\\imAgIne'],
+    binaries=[],
+    datas=[('settings.json', '.'), ('ImAgIne.ico', '.')],
+    hiddenimports=[
+        'scipy.spatial.ckdtree',
+        'numpy.core._methods',
+        'numpy.lib.format',
+        'keras.api._v2.keras',
+        'keras.utils',
+        'keras.utils.generic_utils',
+        'keras.preprocessing',
+        'keras.preprocessing.image',
+        'tensorflow',
+        'tensorflow.python.keras',
+        'tensorflow.python.keras.engine.training',
+        'tensorflow.python.keras.utils',
+        'tensorflow.python.keras.layers',
+        'tensorflow.python.keras.models',
+        'tensorflow.python.keras.preprocessing',
+        'tensorflow.python.keras.preprocessing.image',
+    ],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+    optimize=0,
+)
+pyz = PYZ(a.pure)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.datas,
+    [],
+    name='imAgIne',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,  # Set to False if you don't have UPX
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon='ImAgIne.ico',
+)
