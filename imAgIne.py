@@ -1,3 +1,7 @@
+# MIT License
+# Copyright (c) 2025 N3rd10
+# See LICENSE file for full license text.
+
 import tkinter as tk
 from tkinter import ttk
 import time
@@ -704,5 +708,6 @@ conversion_log_box.pack(fill='both', expand=True)
 # ---------------------- STATUS BAR ----------------------
 status_bar = ttk.Label(root, text="Ready", relief="sunken", anchor="w")
 status_bar.pack(side="bottom", fill="x")
+
 
 root.mainloop()
