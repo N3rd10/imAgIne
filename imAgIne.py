@@ -1,3 +1,7 @@
+# MIT License
+# Copyright (c) 2025 N3rd10
+# See LICENSE file for full license text.
+
 import tkinter as tk
 from tkinter import ttk
 import time
@@ -56,11 +60,6 @@ from keras.preprocessing import image_dataset_from_directory
 splash.update(35)
 time.sleep(0.15)
 from keras.callbacks import EarlyStopping
-from imagine import settings as imagine_settings
-from imagine import utils as imagine_utils
-from imagine import train as imagine_train
-from imagine import predict as imagine_predict
-from imagine import convert as imagine_convert
 
 splash.update(40)
 time.sleep(0.15)
@@ -89,8 +88,6 @@ import json
 splash.update(70)
 time.sleep(0.15)
 import sys
-
-import functools
 
 splash.update(80)
 time.sleep(0.15)
@@ -128,17 +125,49 @@ if getattr(sys, 'frozen', False):
 
 # ---------------------- SETTINGS ----------------------
 SETTINGS_FILE = "settings.json"
-settings = imagine_settings.settings
+settings = {
+    "theme": "clam",
+    "epochs": 10
+}
+
+def load_settings():
+    global settings
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r") as f:
+                settings.update(json.load(f))
+        except:
+            pass
+
+def save_settings():
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(settings, f, indent=4)
+
+load_settings()
 
 # ---------------------- MODEL LOAD FOR PREDICTION ----------------------
-# Default model placeholder handled by imagine.predict module
-model_predict = None
-class_names = []
+# Generic default: attempt to load model.h5 and model_classes.json if present.
+try:
+    default_model_path = "model.h5"
+    default_classes_path = "model_classes.json"
+    if os.path.exists(default_model_path):
+        model_predict = tf.keras.models.load_model(default_model_path)
+        if os.path.exists(default_classes_path):
+            with open(default_classes_path, "r") as f:
+                class_names = json.load(f)
+        else:
+            class_names = []
+    else:
+        model_predict = None
+        class_names = []
+except:
+    model_predict = None
+    class_names = []
 
 # ---------------------- MAIN WINDOW ----------------------
 splash.close()
 root = tk.Tk()
-root.title("imAgIne") 
+root.title("imAgIne")
 root.geometry("850x650")
 root.minsize(800, 600)
 def resource_path(relative_path):
@@ -155,10 +184,95 @@ root.iconbitmap(resource_path("ImAgIne.ico"))
 
 style = ttk.Style()
 
-
+# ---------------------- CUSTOM VS CODE DARK THEME ----------------------
+def create_vscode_dark_theme(style):
+    style.theme_create("vscode-dark", parent="clam", settings={
+        # Generic frames
+        "TFrame": {
+            "configure": {"background": "#1E1E1E"}  # near-black
+        },
+        # Label frames (section boxes)
+        "TLabelFrame": {
+            "configure": {
+                "background": "#1E1E1E",
+                "foreground": "#D4D4D4",  # section title text
+                "borderwidth": 1
+            }
+        },
+        # Label frame headers
+        "TLabelFrame.Label": {
+            "configure": {
+                "background": "#1E1E1E",
+                "foreground": "#D4D4D4"
+            }
+        },
+        # Labels
+        "TLabel": {
+            "configure": {
+                "background": "#1E1E1E",
+                "foreground": "#D4D4D4"
+            }
+        },
+        # Buttons
+        "TButton": {
+            "configure": {
+                "padding": 6,
+                "background": "#2D2D2D",   # dark gray idle
+                "foreground": "#FFFFFF",   # white text
+                "font": ("Segoe UI", 10, "bold"),
+                "borderwidth": 0
+            },
+            "map": {
+                "background": [
+                    ("active", "#007ACC"),  # blue on hover
+                    ("disabled", "#3C3C3C")
+                ],
+                "foreground": [
+                    ("disabled", "#808080")
+                ]
+            }
+        },
+        # Entry fields
+        "TEntry": {
+            "configure": {
+                "fieldbackground": "#252526",  # dark gray
+                "foreground": "#D4D4D4",       # text
+                "insertcolor": "#D4D4D4",
+                "borderwidth": 1
+            }
+        },
+        # Notebook (tabs)
+        "TNotebook": {
+            "configure": {
+                "background": "#1E1E1E",
+                "tabmargins": [2, 5, 2, 0]
+            }
+        },
+        "TNotebook.Tab": {
+            "configure": {
+                "padding": [10, 5],
+                "background": "#2D2D2D",   # dark gray tab
+                "foreground": "#D4D4D4"    # tab text
+            },
+            "map": {
+                "background": [("selected", "#1E1E1E")],
+                "foreground": [("selected", "#FFFFFF")]
+            }
+        },
+        # Progress bar
+        "Horizontal.TProgressbar": {
+            "configure": {
+                "background": "#007ACC",   # blue fill
+                "troughcolor": "#2D2D2D",  # dark gray trough
+                "bordercolor": "#1E1E1E",
+                "lightcolor": "#007ACC",
+                "darkcolor": "#007ACC"
+            }
+        }
+    })
 
 # Create custom theme and ensure fallback to a valid theme
-
+create_vscode_dark_theme(style)
 if settings["theme"] not in style.theme_names():
     settings["theme"] = "vscode-dark"
 style.theme_use(settings["theme"])
@@ -186,9 +300,9 @@ def open_settings():
         # Safe apply: if somehow missing, fall back to vscode-dark
         if settings["theme"] not in style.theme_names():
             settings["theme"] = "vscode-dark"
-            style.theme_use(settings["theme"])
-        imagine_settings.save_settings()
-        settings_win.destroy()  
+        style.theme_use(settings["theme"])
+        save_settings()
+        settings_win.destroy()
 
     ttk.Button(settings_win, text="Save", command=save_and_close).grid(row=2, column=0, columnspan=2, pady=10)
 
@@ -214,7 +328,38 @@ notebook.add(convert_frame, text="Convert Model")
 folder_path = tk.StringVar()
 
 def auto_split_dataset(base_path, train_ratio=0.8):
-    return imagine_utils.auto_split_dataset(base_path, train_ratio)
+    train_path = os.path.join(base_path, "train")
+    val_path = os.path.join(base_path, "val")
+
+    if os.path.exists(train_path) and os.path.exists(val_path):
+        class_dirs = [d for d in os.listdir(train_path) if os.path.isdir(os.path.join(train_path, d))]
+        return "Dataset already split into 'train' and 'val'.", class_dirs
+
+    class_dirs = [d for d in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, d)) and d not in ["train", "val"]]
+    if not class_dirs:
+        return "No class folders found in dataset.", []
+
+    os.makedirs(train_path, exist_ok=True)
+    os.makedirs(val_path, exist_ok=True)
+
+    for class_name in class_dirs:
+        class_dir = os.path.join(base_path, class_name)
+        images = [f for f in os.listdir(class_dir) if f.lower().endswith((".jpg", ".jpeg", ".png"))]
+        random.shuffle(images)
+
+        split_idx = int(len(images) * train_ratio)
+        train_images = images[:split_idx]
+        val_images = images[split_idx:]
+
+        os.makedirs(os.path.join(train_path, class_name), exist_ok=True)
+        os.makedirs(os.path.join(val_path, class_name), exist_ok=True)
+
+        for img in train_images:
+            shutil.copy2(os.path.join(class_dir, img), os.path.join(train_path, class_name, img))
+        for img in val_images:
+            shutil.copy2(os.path.join(class_dir, img), os.path.join(val_path, class_name, img))
+
+    return f"Dataset split complete: {len(train_images)} training, {len(val_images)} validation images per class.", class_dirs
 
 def choose_folder():
     selected = filedialog.askdirectory()
@@ -281,21 +426,72 @@ def train_model(log_widget):
         progress["value"] = 0
         progress_label.config(text="Progress: 0%")
 
-        # Delegate training to imagine.train
-        def log_cb(text):
-            log_widget.insert(tk.END, text + "\n")
-            log_widget.see(tk.END)
+        split_status, detected_classes = auto_split_dataset(base_path)
+        log_widget.insert(tk.END, split_status + "\n")
+        global class_names
+        class_names = detected_classes
+        log_widget.insert(tk.END, f"Detected classes: {class_names}\n")
 
-        def save_path_cb():
-            return prompt_save_model()
-
-        log_widget.insert(tk.END, "Starting training via imagine.train...\n")
-        imagine_train.train_model(
-            base_path,
-            log_callback=log_cb,
-            progress_callback=None,
-            save_path_callback=save_path_cb
+        log_widget.insert(tk.END, "Loading datasets...\n")
+        train_ds = image_dataset_from_directory(
+            os.path.join(base_path, "train"),
+            image_size=(224, 224),
+            batch_size=32,
+            label_mode='categorical'
         )
+        val_ds = image_dataset_from_directory(
+            os.path.join(base_path, "val"),
+            image_size=(224, 224),
+            batch_size=32,
+            label_mode='categorical'
+        )
+
+        AUTOTUNE = tf.data.AUTOTUNE
+        train_ds = train_ds.prefetch(buffer_size=AUTOTUNE)
+        val_ds = val_ds.prefetch(buffer_size=AUTOTUNE)
+
+        log_widget.insert(tk.END, "Building model...\n")
+        model = Sequential([
+            Conv2D(32, (3, 3), activation='relu', input_shape=(224, 224, 3)),
+            MaxPooling2D(2, 2),
+            Conv2D(64, (3, 3), activation='relu'),
+            MaxPooling2D(2, 2),
+            Flatten(),
+            Dense(128, activation='relu'),
+            Dropout(0.3),
+            Dense(len(class_names), activation='softmax')
+        ])
+
+        model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+        EPOCHS = settings["epochs"]
+        steps_per_epoch = tf.data.experimental.cardinality(train_ds).numpy()
+
+        log_widget.insert(tk.END, "Training model...\n")
+        history = model.fit(
+            train_ds,
+            validation_data=val_ds,
+            epochs=EPOCHS,
+            callbacks=[
+                EarlyStopping(patience=3, restore_best_weights=True),
+                ProgressCallback(progress, progress_label, EPOCHS, steps_per_epoch),
+                PerformanceLogger(log_widget)
+            ]
+        )
+
+        save_path = prompt_save_model()
+        if save_path:
+            model.save(save_path)
+            log_widget.insert(tk.END, f"Model saved to: {save_path}\n")
+
+            class_file = save_path.replace(".h5", "_classes.json")
+            with open(class_file, "w") as f:
+                json.dump(class_names, f)
+            log_widget.insert(tk.END, f"Class names saved to: {class_file}\n")
+            messagebox.showinfo("Saved", f"Model saved to:\n{save_path}")
+            status_bar.config(text=f"Model saved: {save_path}")
+        else:
+            log_widget.insert(tk.END, "Save cancelled by user.\n")
 
     except Exception as e:
         log_widget.insert(tk.END, f"Error: {e}\n")
@@ -316,12 +512,15 @@ def load_model_file():
     if file_path:
         try:
             global model_predict, class_names
-            imagine_predict.load_model(file_path)
-            model_predict = imagine_predict.model_predict
-            class_names = imagine_predict.class_names
-            if class_names:
+            model_predict = tf.keras.models.load_model(file_path)
+
+            class_file = file_path.replace(".h5", "_classes.json")
+            if os.path.exists(class_file):
+                with open(class_file, "r") as f:
+                    class_names = json.load(f)
                 result_label.config(text=f"Model loaded.\nClasses: {class_names}")
             else:
+                class_names = []
                 messagebox.showwarning("Class Names Missing", "No class list found for this model.")
                 result_label.config(text="Model loaded, but no class names found.")
 
@@ -332,7 +531,10 @@ def load_model_file():
             status_bar.config(text="Error loading model")
 
 def load_and_preprocess_image(path):
-    return imagine_utils.load_and_preprocess_image(path, target_size=(224,224))
+    img = Image.open(path).convert("RGB")
+    img = img.resize((224, 224))
+    img_array = np.array(img) / 255.0
+    return np.expand_dims(img_array, axis=0)
 
 def choose_image():
     file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.jpg *.jpeg *.png")])
@@ -343,9 +545,12 @@ def choose_image():
 
 def classify_image(path):
     try:
-        if not imagine_predict.model_predict:
+        if not model_predict:
             return "No model loaded. Please load a model first."
-        predicted_class, confidence = imagine_predict.classify_image(path)
+        image = load_and_preprocess_image(path)
+        predictions = model_predict.predict(image)
+        predicted_class = class_names[np.argmax(predictions)] if class_names else np.argmax(predictions)
+        confidence = np.max(predictions)
         return f"Prediction: {predicted_class} ({confidence:.2%} confidence)"
     except Exception as e:
         return f"Error: {e}"
@@ -354,8 +559,54 @@ def classify_image(path):
 
 # ---------------------- CONVERSION FUNCTIONS ----------------------
 
-def convert_h5_to_limelight_tflite(h5_path, output_dir, representative_data_gen, quantize=True, log_callback=None):
-    return imagine_convert.convert_h5_to_tflite(h5_path, output_dir, representative_data_gen, quantize, log_callback)
+def convert_h5_to_limelight_tflite(h5_path, output_dir, representative_data_gen=None, quantize=True, log_callback=None):
+    """
+    Convert a Keras .h5 model to a Limelight-compatible .tflite model.
+    
+    Args:
+        h5_path (str): Path to the Keras .h5 model file.
+        output_dir (str): Directory to save the converted .tflite file.
+        representative_data_gen (callable): Generator function yielding representative samples for INT8 quantization.
+        quantize (bool): Whether to apply INT8 quantization for Coral TPU.
+        log_callback (callable): Optional function to log messages (e.g., to your UI log box).
+    """
+    def log(msg):
+        if log_callback:
+            log_callback(msg)
+        else:
+            print(msg)
+
+    if not os.path.exists(h5_path):
+        raise FileNotFoundError(f"Model file not found: {h5_path}")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    log(f"Loading Keras model from {h5_path}...")
+    model = tf.keras.models.load_model(h5_path)
+
+    log("Initializing TFLite converter...")
+    converter = tf.lite.TFLiteConverter.from_keras_model(model)
+
+    if quantize:
+        log("Enabling INT8 quantization for Coral TPU...")
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+        if representative_data_gen is None:
+            log("No representative dataset provided — quantization may be less accurate.")
+        else:
+            converter.representative_dataset = representative_data_gen
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+        converter.inference_input_type = tf.uint8
+        converter.inference_output_type = tf.uint8
+
+    log("Converting model to TFLite format...")
+    tflite_model = converter.convert()
+
+    output_path = os.path.join(output_dir, "model.tflite")
+    with open(output_path, "wb") as f:
+        f.write(tflite_model)
+
+    log(f"Conversion complete! Saved to {output_path}")
+    return output_path
 
 def representative_data_gen(val_path):
     image_paths = []
@@ -377,7 +628,7 @@ def representative_data_gen(val_path):
 def run_model_conversion():
     h5_path = h5_model_path.get()
     output_dir = output_folder_path.get()
-    rep_path = rep_data_folder_path.get()
+
     def log_to_ui(msg):
         conversion_log_box.insert(tk.END, msg + "\n")
         conversion_log_box.see(tk.END)
@@ -385,9 +636,8 @@ def run_model_conversion():
     try:
         convert_h5_to_limelight_tflite(
             h5_path=h5_path,
-             output_dir=output_dir,
-            # pass a zero-arg callable that yields representative data
-            representative_data_gen=functools.partial(representative_data_gen, rep_path),
+            output_dir=output_dir,
+            representative_data_gen=None,  # You can plug in your generator here
             quantize=True,
             log_callback=log_to_ui
         )
@@ -447,18 +697,8 @@ output_folder_path = tk.StringVar()
 ttk.Entry(conversion_group, textvariable=output_folder_path, width=50).grid(row=1, column=1, padx=5)
 ttk.Button(conversion_group, text="Browse", command=lambda: output_folder_path.set(filedialog.askdirectory())).grid(row=1, column=2)
 
-ttk.Label(conversion_group, text="Representative Data Folder:").grid(row=2, column=0, sticky="w")
-rep_data_folder_path = tk.StringVar()
-ttk.Entry(conversion_group, textvariable=rep_data_folder_path, width=50).grid(row=2, column=1, padx=5)
-ttk.Button(
-    conversion_group,
-    text="Browse",
-    command=lambda: rep_data_folder_path.set(filedialog.askdirectory())
-).grid(row=2, column=2)
-
-
 ttk.Button(conversion_group, text="Convert to Limelight Format", 
-           command=run_model_conversion).grid(row=3, column=0, columnspan=4, pady=10)
+           command=run_model_conversion).grid(row=2, column=0, columnspan=3, pady=10)
 
 conversion_log_group = ttk.LabelFrame(convert_frame, text="Conversion Log", padding=5)
 conversion_log_group.pack(fill='both', expand=True, pady=5)
@@ -468,5 +708,6 @@ conversion_log_box.pack(fill='both', expand=True)
 # ---------------------- STATUS BAR ----------------------
 status_bar = ttk.Label(root, text="Ready", relief="sunken", anchor="w")
 status_bar.pack(side="bottom", fill="x")
- 
+
+
 root.mainloop()
